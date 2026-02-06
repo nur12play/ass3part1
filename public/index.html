@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Product Catalog</title>
+  <link rel="stylesheet" href="./style.css"/>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Product Catalog</h1>
+      <p class="muted">CRUD through Web UI (sessions + protected write operations)</p>
+    </header>
+
+    <!-- Auth -->
+    <section class="card">
+      <div class="row">
+        <div>
+          <h2>Auth</h2>
+          <p class="muted" id="authStatus">Checking session...</p>
+        </div>
+      </div>
+
+      <form id="loginForm" class="grid" autocomplete="on">
+        <label>
+          Username
+          <input id="loginUser" type="text" placeholder="admin" minlength="3" required />
+        </label>
+
+        <label>
+          Password
+          <input id="loginPass" type="password" placeholder="admin123" minlength="6" required />
+        </label>
+
+        <div></div>
+
+        <button class="btn" type="submit">Login</button>
+      </form>
+
+      <div class="row" style="margin-top:10px;">
+        <button id="logoutBtn" class="btn secondary" type="button">Logout</button>
+        <div id="authMsg" class="msg"></div>
+      </div>
+    </section>
+
+    <!-- Add Product -->
+    <section class="card">
+      <h2>Add Product</h2>
+
+      <form id="addForm" class="grid" autocomplete="off">
+        <label>
+          Name
+          <input id="name" type="text" minlength="2" placeholder="e.g. iPhone 15" required />
+        </label>
+
+        <label>
+          Price
+          <input id="price" type="number" step="0.01" min="0" placeholder="e.g. 999.99" required />
+        </label>
+
+        <label>
+          Category
+          <input id="category" type="text" placeholder="e.g. electronics" />
+        </label>
+
+        <label>
+          Brand
+          <input id="brand" type="text" placeholder="e.g. Apple" />
+        </label>
+
+        <label>
+          SKU
+          <input id="sku" type="text" placeholder="e.g. SKU-1000" />
+        </label>
+
+        <label class="check">
+          <input id="inStock" type="checkbox" checked />
+          In stock
+        </label>
+
+        <button class="btn" type="submit">Add</button>
+      </form>
+
+      <div id="msg" class="msg"></div>
+    </section>
+
+    <!-- Products list -->
+    <section class="card">
+      <div class="row">
+        <h2>Products</h2>
+
+        <div class="tools">
+          <input id="search" type="text" placeholder="Search by name..." />
+          <select id="sort">
+            <option value="">Sort: default</option>
+            <option value="price">Price ↑</option>
+            <option value="-price">Price ↓</option>
+            <option value="-createdAt">Newest</option>
+            <option value="createdAt">Oldest</option>
+          </select>
+          <button id="reload" class="btn secondary" type="button">Reload</button>
+        </div>
+      </div>
+
+      <div class="tableWrap">
+        <table>
+          <thead>
+           <tr>
+             <th>Name</th>
+             <th class="num">Price</th>
+             <th>Category</th>
+             <th>Brand</th>
+             <th>SKU</th>
+             <th>In stock</th>
+             <th class="actions">Actions</th>
+           </tr>
+
+          </thead>
+          <tbody id="items"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Edit modal -->
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Edit product">
+      <div class="modalCard">
+        <div class="modalHeader">
+          <h3>Edit Product</h3>
+          <button id="closeModal" class="iconBtn" type="button" aria-label="Close">✕</button>
+        </div>
+
+        <form id="editForm" class="grid" autocomplete="off">
+          <input id="editId" type="hidden" />
+
+          <label>
+            Name
+            <input id="editName" type="text" minlength="2" required />
+          </label>
+
+          <label>
+            Price
+            <input id="editPrice" type="number" step="0.01" min="0" required />
+          </label>
+
+          <label>
+            Category
+            <input id="editCategory" type="text" />
+          </label>
+
+          <label>
+            Brand
+            <input id="editBrand" type="text" placeholder="e.g. Apple" />
+          </label>
+
+          <label>
+            SKU
+            <input id="editSku" type="text" placeholder="e.g. SKU-1000" />
+          </label>
+
+          <label class="check">
+            <input id="editInStock" type="checkbox" />
+            In stock
+          </label>
+
+          <button class="btn" type="submit">Save</button>
+        </form>
+
+        <div id="editMsg" class="msg"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
