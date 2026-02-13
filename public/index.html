@@ -10,7 +10,9 @@
   <div class="container">
     <header class="header">
       <h1>Product Catalog</h1>
-      <p class="muted">CRUD through Web UI (sessions + protected write operations)</p>
+      <p class="muted">
+        CRUD through Web UI (sessions + protected write operations + roles + owner access)
+      </p>
     </header>
 
     <!-- Auth -->
@@ -19,6 +21,7 @@
         <div>
           <h2>Auth</h2>
           <p class="muted" id="authStatus">Checking session...</p>
+          <p class="muted" id="roleStatus" style="margin-top:4px;">Role: -</p>
         </div>
       </div>
 
@@ -106,17 +109,20 @@
       <div class="tableWrap">
         <table>
           <thead>
-           <tr>
-             <th>Name</th>
-             <th class="num">Price</th>
-             <th>Category</th>
-             <th>Brand</th>
-             <th>SKU</th>
-             <th>In stock</th>
-             <th class="actions">Actions</th>
-           </tr>
+            <tr>
+              <th>Name</th>
+              <th class="num">Price</th>
+              <th>Category</th>
+              <th>Brand</th>
+              <th>SKU</th>
+              <th>In stock</th>
 
+              <th>Owner</th>
+
+              <th class="actions">Actions</th>
+            </tr>
           </thead>
+
           <tbody id="items"></tbody>
         </table>
       </div>

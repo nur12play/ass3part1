@@ -13,7 +13,11 @@ function isValidObjectId(id) {
 
 function normalizeId(doc) {
   if (!doc) return doc;
-  return { ...doc, _id: String(doc._id) };
+  return {
+    ...doc,
+    _id: String(doc._id),
+    ownerId: doc.ownerId !== undefined ? String(doc.ownerId) : undefined,
+  };
 }
 
 function requireAuth(req, res, next) {
@@ -21,6 +25,46 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   next();
+}
+
+function isAdmin(req) {
+  return req.session?.role === "admin";
+}
+
+async function requireOwnerOrAdmin(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid id" });
+    }
+
+    const db = getDb();
+    const col = db.collection(process.env.COLLECTION_NAME || "items");
+
+    const item = await col.findOne({ _id: new ObjectId(id) });
+    if (!item) return res.status(404).json({ error: "Not Found" });
+
+    const ownerId = String(item.ownerId || "");
+    const userId = String(req.session.userId);
+
+    if (isAdmin(req) || ownerId === userId) {
+      req.item = item; 
+      return next();
+    }
+
+    return res.status(403).json({ error: "Forbidden: you can modify only your own items" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+
+const PROTECT_WRITES = process.env.PROTECT_WRITES === "true";
+
+function maybeAuth(req, res, next) {
+  if (!PROTECT_WRITES) return next();
+  return requireAuth(req, res, next);
 }
 
 function parseSort(sortStr) {
@@ -100,6 +144,11 @@ router.get("/", async (req, res) => {
     const col = db.collection(process.env.COLLECTION_NAME || "items");
 
     const filter = buildFilterFromQuery(req.query);
+
+    if (req.session?.userId && !isAdmin(req)) {
+      filter.ownerId = req.session.userId;
+    }
+
     const sort = parseSort(req.query.sort);
     const projection = parseProjection(req.query.fields);
 
@@ -115,7 +164,6 @@ router.get("/", async (req, res) => {
 
     const items = await cursor.toArray();
 
-    // ✅ normalize ids for frontend stability
     return res.status(200).json(items.map(normalizeId));
   } catch (err) {
     console.error(err);
@@ -165,6 +213,7 @@ router.post("/", requireAuth, async (req, res) => {
       price: req.body.price,
       category: typeof req.body.category === "string" ? req.body.category.trim() : "general",
       inStock: typeof req.body.inStock === "boolean" ? req.body.inStock : true,
+      ownerId: req.session.userId, 
       createdAt: new Date(),
     };
 
@@ -179,15 +228,11 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 /**
- * PUT /api/items/:id (protected)
+ * PUT /api/items/:id (protected + owner/admin)
  */
-router.put("/:id", requireAuth, async (req, res) => {
+router.put("/:id", requireAuth, requireOwnerOrAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ error: "Invalid id" });
-    }
 
     if (!req.body || typeof req.body !== "object" || Object.keys(req.body).length === 0) {
       return res.status(400).json({ error: "Body is required" });
@@ -248,15 +293,11 @@ router.put("/:id", requireAuth, async (req, res) => {
 });
 
 /**
- * DELETE /api/items/:id (protected)
+ * DELETE /api/items/:id (protected + owner/admin)
  */
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", requireAuth, requireOwnerOrAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ error: "Invalid id" });
-    }
 
     const db = getDb();
     const col = db.collection(process.env.COLLECTION_NAME || "items");

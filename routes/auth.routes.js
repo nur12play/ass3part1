@@ -5,6 +5,7 @@ const { getDb } = require("../database/mongo");
 const router = express.Router();
 
 const USERS_COL = "users";
+const ALLOWED_ROLES = ["user", "admin"];
 
 function sanitizeUser(user) {
   if (!user) return null;
@@ -13,7 +14,6 @@ function sanitizeUser(user) {
   return safe;
 }
 
-// (Опционально) регистрация — можно оставить, но на защите не обязательно показывать
 router.post("/register", async (req, res) => {
   try {
     const { username, password } = req.body || {};
@@ -28,14 +28,17 @@ router.post("/register", async (req, res) => {
     const db = getDb();
     const col = db.collection(USERS_COL);
 
-    const existing = await col.findOne({ username: username.trim().toLowerCase() });
+    const normUsername = username.trim().toLowerCase();
+
+    const existing = await col.findOne({ username: normUsername });
     if (existing) return res.status(409).json({ error: "User already exists" });
 
     const passwordHash = await bcrypt.hash(password, 10);
 
     const doc = {
-      username: username.trim().toLowerCase(),
+      username: normUsername,
       passwordHash,
+      role: "user", 
       createdAt: new Date(),
     };
 
@@ -53,7 +56,6 @@ router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body || {};
 
-    // ✅ generic message requirement
     const invalid = () => res.status(401).json({ error: "Invalid credentials" });
 
     if (!username || !password) return invalid();
@@ -67,9 +69,11 @@ router.post("/login", async (req, res) => {
     const ok = await bcrypt.compare(String(password), user.passwordHash);
     if (!ok) return invalid();
 
-    // ✅ session created
     req.session.userId = String(user._id);
-    req.session.username = user.username; // не чувствительные данные
+    req.session.username = user.username;
+
+    const role = ALLOWED_ROLES.includes(user.role) ? user.role : "user";
+    req.session.role = role;
 
     return res.status(200).json({ ok: true, user: sanitizeUser(user) });
   } catch (e) {
@@ -86,9 +90,14 @@ router.post("/logout", async (req, res) => {
 });
 
 router.get("/me", (req, res) => {
-  if (!req.session.userId) return res.status(200).json({ user: null });
+  if (!req.session?.userId) return res.status(200).json({ user: null });
+
   return res.status(200).json({
-    user: { id: req.session.userId, username: req.session.username },
+    user: {
+      id: req.session.userId,
+      username: req.session.username,
+      role: req.session.role || "user", 
+    },
   });
 });
 

@@ -7,9 +7,9 @@ const dbName = process.env.DB_NAME || "assn3db";
 const USERS_COL = "users";
 
 const users = [
-  { username: "admin", password: "admin123" },
-  { username: "manager", password: "manager123" },
-  { username: "user", password: "user123" },
+  { username: "admin", password: "admin123", role: "admin" },
+  { username: "manager", password: "manager123", role: "admin" },
+  { username: "user", password: "user123", role: "user" },
 ];
 
 async function seedUsers() {
@@ -19,7 +19,6 @@ async function seedUsers() {
   const db = client.db(dbName);
   const col = db.collection(USERS_COL);
 
-  // очистим users перед сидом (нормально для ассаймента)
   await col.deleteMany({});
 
   const docs = [];
@@ -30,6 +29,7 @@ async function seedUsers() {
     docs.push({
       username: u.username.toLowerCase(),
       passwordHash,
+      role: u.role, 
       createdAt: new Date(),
     });
   }
@@ -38,9 +38,7 @@ async function seedUsers() {
 
   console.log(`✅ Seed users completed: ${docs.length} users added`);
   console.log("Accounts:");
-  users.forEach((u) =>
-    console.log(`- ${u.username} / ${u.password}`)
-  );
+  users.forEach((u) => console.log(`- ${u.username} / ${u.password} (${u.role})`));
 
   await client.close();
 }

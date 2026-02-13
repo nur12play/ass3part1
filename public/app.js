@@ -1,10 +1,8 @@
-// public/app.js
 const API_ITEMS = "/api/items";
 const API_AUTH = "/api/auth";
 
 const el = (id) => document.getElementById(id);
 
-// ---------- Elements ----------
 const addForm = el("addForm");
 const itemsTbody = el("items");
 const msg = el("msg");
@@ -18,28 +16,28 @@ const closeModalBtn = el("closeModal");
 const editForm = el("editForm");
 const editMsg = el("editMsg");
 
-// Auth UI
 const authStatus = el("authStatus");
+const roleStatus = el("roleStatus"); 
 const loginForm = el("loginForm");
 const logoutBtn = el("logoutBtn");
 const authMsg = el("authMsg");
 
-// NEW fields in forms (must exist in index.html)
 const brandInput = el("brand");
 const skuInput = el("sku");
 const editBrandInput = el("editBrand");
 const editSkuInput = el("editSku");
 
-// ---------- UI helpers ----------
-function setText(node, text, isError = false) {
+let currentUser = null; 
+
+function setMsg(node, text, kind = "") {
   if (!node) return;
   node.textContent = text || "";
-  node.style.color = isError ? "#ff8a8a" : "#aab3c5";
+  node.className = kind ? `msg ${kind}` : "msg";
 }
 
-const showMsg = (t, e = false) => setText(msg, t, e);
-const showEditMsg = (t, e = false) => setText(editMsg, t, e);
-const showAuthMsg = (t, e = false) => setText(authMsg, t, e);
+const showMsg = (t, kind = "") => setMsg(msg, t, kind);
+const showEditMsg = (t, kind = "") => setMsg(editMsg, t, kind);
+const showAuthMsg = (t, kind = "") => setMsg(authMsg, t, kind);
 
 function openModal() {
   modal?.classList.remove("hidden");
@@ -64,7 +62,18 @@ function money(n) {
   return num.toFixed(2);
 }
 
-// ---------- API helper ----------
+function shortId(id) {
+  const s = String(id || "");
+  if (s.length <= 10) return s;
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
+
+function canModify(item) {
+  if (!currentUser) return false;
+  if (currentUser.role === "admin") return true;
+  return String(item.ownerId || "") === String(currentUser.id || "");
+}
+
 async function apiFetch(url, options = {}) {
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -74,8 +83,16 @@ async function apiFetch(url, options = {}) {
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {
-    const errMsg = data?.error || `Request failed (${res.status})`;
-    throw new Error(errMsg);
+    const serverMsg = data?.error || data?.message || "";
+    let errMsg = serverMsg || `Request failed (${res.status})`;
+
+    if (res.status === 401) errMsg = serverMsg || "Unauthorized: please login first";
+    if (res.status === 403) errMsg = serverMsg || "Forbidden: not enough permissions";
+
+    const err = new Error(errMsg);
+    err.status = res.status;
+    err.data = data;
+    throw err;
   }
   return data;
 }
@@ -84,25 +101,44 @@ function buildItemsQuery() {
   const q = new URLSearchParams();
   const sort = sortSelect?.value;
   if (sort) q.set("sort", sort);
-
   const qs = q.toString();
   return qs ? `?${qs}` : "";
 }
 
-// ---------- Auth ----------
 async function checkMe() {
   if (!authStatus) return false;
 
   try {
     const me = await apiFetch(`${API_AUTH}/me`);
+
     if (me.user) {
+      currentUser = me.user;
+
       authStatus.textContent = `Logged in as: ${me.user.username}`;
+      if (roleStatus) roleStatus.textContent = `Role: ${me.user.role || "user"}`;
+
+      if (loginForm) loginForm.style.display = "none";
+      if (logoutBtn) logoutBtn.style.display = "inline-block";
+
       return true;
     }
+
+    currentUser = null;
     authStatus.textContent = "Not logged in";
+    if (roleStatus) roleStatus.textContent = "Role: -";
+
+    if (loginForm) loginForm.style.display = "";
+    if (logoutBtn) logoutBtn.style.display = "none";
+
     return false;
   } catch {
+    currentUser = null;
     authStatus.textContent = "Not logged in";
+    if (roleStatus) roleStatus.textContent = "Role: -";
+
+    if (loginForm) loginForm.style.display = "";
+    if (logoutBtn) logoutBtn.style.display = "none";
+
     return false;
   }
 }
@@ -120,11 +156,11 @@ loginForm?.addEventListener("submit", async (e) => {
       body: JSON.stringify({ username, password }),
     });
 
-    showAuthMsg("Logged in!");
+    showAuthMsg("Logged in!", "ok");
     await checkMe();
-    loadItems().catch(() => {});
+    await loadItems();
   } catch (err) {
-    showAuthMsg(err.message, true);
+    showAuthMsg(err.message, "err");
   }
 });
 
@@ -132,14 +168,14 @@ logoutBtn?.addEventListener("click", async () => {
   showAuthMsg("");
   try {
     await apiFetch(`${API_AUTH}/logout`, { method: "POST" });
-    showAuthMsg("Logged out");
+    showAuthMsg("Logged out", "ok");
     await checkMe();
+    await loadItems();
   } catch (err) {
-    showAuthMsg(err.message, true);
+    showAuthMsg(err.message, "err");
   }
 });
 
-// ---------- Render items ----------
 function renderRows(items) {
   const search = (searchInput?.value || "").trim().toLowerCase();
 
@@ -147,9 +183,8 @@ function renderRows(items) {
     ? items.filter((it) => String(it.name || "").toLowerCase().includes(search))
     : items;
 
-  // IMPORTANT: table now has 7 columns (Name, Price, Category, Brand, SKU, InStock, Actions)
   if (!filtered.length) {
-    itemsTbody.innerHTML = `<tr><td colspan="7" class="muted">No products yet</td></tr>`;
+    itemsTbody.innerHTML = `<tr><td colspan="8" class="muted">No products yet</td></tr>`;
     return;
   }
 
@@ -163,6 +198,15 @@ function renderRows(items) {
       const price = money(it.price);
       const inStock = !!it.inStock;
 
+      const ownerId = it.ownerId ? String(it.ownerId) : "";
+      const ownerCell = ownerId ? escapeHtml(shortId(ownerId)) : "-";
+
+      const allowed = canModify(it);
+      const disabledAttr = allowed ? "" : "disabled";
+      const titleAttr = allowed
+        ? ""
+        : `title="Forbidden: only owner or admin can modify"`;
+
       return `
         <tr>
           <td>${name}</td>
@@ -175,9 +219,10 @@ function renderRows(items) {
               ${inStock ? "Yes" : "No"}
             </span>
           </td>
+          <td class="owner" title="${escapeHtml(ownerId)}">${ownerCell}</td>
           <td class="actions">
-            <button class="smallBtn" data-action="edit" data-id="${id}">Edit</button>
-            <button class="smallBtn danger" data-action="delete" data-id="${id}">Delete</button>
+            <button class="smallBtn" data-action="edit" data-id="${id}" ${disabledAttr} ${titleAttr}>Edit</button>
+            <button class="smallBtn danger" data-action="delete" data-id="${id}" ${disabledAttr} ${titleAttr}>Delete</button>
           </td>
         </tr>
       `;
@@ -190,13 +235,12 @@ async function loadItems() {
   try {
     const items = await apiFetch(`${API_ITEMS}${buildItemsQuery()}`);
     renderRows(items);
-    showMsg(`Loaded: ${items.length}`);
+    showMsg(`Loaded: ${items.length}`, "ok");
   } catch (e) {
-    showMsg(e.message, true);
+    showMsg(e.message, "err");
   }
 }
 
-// ---------- Add ----------
 addForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   showMsg("");
@@ -225,17 +269,21 @@ addForm?.addEventListener("submit", async (e) => {
     const chk = el("inStock");
     if (chk) chk.checked = true;
 
-    showMsg(`Created: ${created.name}`);
-    loadItems().catch(() => {});
+    showMsg(`Created: ${created.name}`, "ok");
+    await loadItems();
   } catch (err) {
-    showMsg(err.message, true);
+    showMsg(err.message, "err");
   }
 });
 
-// ---------- Table actions (Edit/Delete) ----------
 itemsTbody?.addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-action]");
   if (!btn) return;
+
+  if (btn.disabled) {
+    showMsg("Forbidden: only owner or admin can modify this item", "warn");
+    return;
+  }
 
   const action = btn.dataset.action;
   const id = String(btn.dataset.id);
@@ -246,10 +294,10 @@ itemsTbody?.addEventListener("click", async (e) => {
 
     try {
       await apiFetch(`${API_ITEMS}/${id}`, { method: "DELETE" });
-      showMsg("Deleted");
-      loadItems().catch(() => {});
+      showMsg("Deleted", "ok");
+      await loadItems();
     } catch (err) {
-      showMsg(err.message, true);
+      showMsg(err.message, "err");
     }
     return;
   }
@@ -269,18 +317,16 @@ itemsTbody?.addEventListener("click", async (e) => {
       showEditMsg("");
       openModal();
     } catch (err) {
-      showMsg(err.message, true);
+      showMsg(err.message, "err");
     }
   }
 });
 
-// ---------- Modal events ----------
 closeModalBtn?.addEventListener("click", closeModal);
 modal?.addEventListener("click", (e) => {
   if (e.target === modal) closeModal();
 });
 
-// ---------- Save (Update) ----------
 editForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   showEditMsg("");
@@ -300,18 +346,22 @@ editForm?.addEventListener("submit", async (e) => {
     });
 
     closeModal();
-    showMsg(`Updated: ${updated.name}`);
-    loadItems().catch(() => {});
+    showMsg(`Updated: ${updated.name}`, "ok");
+    await loadItems();
   } catch (err) {
-    showEditMsg(err.message, true);
+    showEditMsg(err.message, "err");
   }
 });
 
-// ---------- Filters ----------
 reloadBtn?.addEventListener("click", () => loadItems());
 sortSelect?.addEventListener("change", () => loadItems());
-searchInput?.addEventListener("input", () => loadItems());
 
-// ---------- Init ----------
-loadItems();
-checkMe();
+searchInput?.addEventListener("input", async () => {
+  clearTimeout(searchInput.__t);
+  searchInput.__t = setTimeout(() => loadItems(), 250);
+});
+
+(async function init() {
+  await checkMe();
+  await loadItems();
+})();

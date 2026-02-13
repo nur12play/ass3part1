@@ -4,6 +4,7 @@ const { MongoClient } = require("mongodb");
 const uri = process.env.MONGO_URI;
 const dbName = process.env.DB_NAME || "assn3db";
 const collectionName = process.env.COLLECTION_NAME || "items";
+const USERS_COL = "users";
 
 const products = [
   { name: "iPhone 13", price: 500, category: "smartphone", brand: "Apple" },
@@ -34,19 +35,28 @@ async function seed() {
 
   const db = client.db(dbName);
   const col = db.collection(collectionName);
+  const usersCol = db.collection(USERS_COL);
 
-  await col.deleteMany({}); // очищаем перед сидом
+  await col.deleteMany({});
+
+  const admin = await usersCol.findOne({ username: "admin" });
+
+  if (!admin) {
+    console.error("❌ Admin user not found. Run seed-users.js first.");
+    process.exit(1);
+  }
 
   const docs = products.map((p, i) => ({
     ...p,
     sku: `SKU-${1000 + i}`,
     inStock: true,
+    ownerId: String(admin._id), 
     createdAt: new Date(),
   }));
 
   await col.insertMany(docs);
 
-  console.log(`✅ Seed completed: ${docs.length} products added`);
+  console.log(`✅ Seed completed: ${docs.length} products added (owned by admin)`);
   await client.close();
 }
 

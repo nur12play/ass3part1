@@ -1,15 +1,18 @@
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   background: #0b1020;
   color: #e9ecf1;
 }
+
 .container {
   max-width: 1000px;
   margin: 0 auto;
   padding: 24px;
 }
+
 .header { margin-bottom: 18px; }
 h1 { margin: 0 0 6px; font-size: 32px; }
 h2 { margin: 0 0 12px; font-size: 18px; }
@@ -31,7 +34,13 @@ h2 { margin: 0 0 12px; font-size: 18px; }
   align-items: end;
 }
 
-label { display: grid; gap: 6px; font-size: 13px; color: #cdd5e6; }
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #cdd5e6;
+}
+
 input, select {
   width: 100%;
   padding: 10px 10px;
@@ -41,6 +50,7 @@ input, select {
   color: #e9ecf1;
   outline: none;
 }
+
 input:focus, select:focus { border-color: rgba(120, 160, 255, 0.8); }
 
 .check {
@@ -49,6 +59,7 @@ input:focus, select:focus { border-color: rgba(120, 160, 255, 0.8); }
   gap: 10px;
   padding: 10px 0 2px;
 }
+
 .check input { width: 18px; height: 18px; }
 
 .btn {
@@ -60,13 +71,38 @@ input:focus, select:focus { border-color: rgba(120, 160, 255, 0.8); }
   cursor: pointer;
   font-weight: 600;
 }
+
 .btn:hover { filter: brightness(1.07); }
-.btn.secondary {
-  background: transparent;
+
+.btn.secondary { background: transparent; }
+
+.msg {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #aab3c5;
+  min-height: 18px;
+  line-height: 1.35;
 }
 
-.msg { margin-top: 10px; font-size: 13px; color: #aab3c5; min-height: 18px; }
+.msg.ok {
+  color: rgba(41, 204, 106, 0.95);
+}
 
+.msg.err {
+  color: rgba(255, 120, 120, 0.95);
+}
+
+.msg.warn {
+  color: rgba(255, 200, 120, 0.95);
+}
+
+#roleStatus {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* layout */
 .row {
   display: flex;
   justify-content: space-between;
@@ -74,28 +110,47 @@ input:focus, select:focus { border-color: rgba(120, 160, 255, 0.8); }
   gap: 14px;
   flex-wrap: wrap;
 }
+
 .tools {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
 }
+
 .tableWrap { overflow: auto; border-radius: 12px; }
-table { width: 100%; border-collapse: collapse; }
+
+table { width: 100%; border-collapse: collapse; min-width: 860px; }
+
 thead th {
   text-align: left;
   font-size: 12px;
   color: #aab3c5;
   padding: 10px;
   border-bottom: 1px solid rgba(255,255,255,0.12);
+  white-space: nowrap;
 }
+
 tbody td {
   padding: 10px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
   vertical-align: middle;
 }
+
 td.num { text-align: right; font-variant-numeric: tabular-nums; }
-th.actions, td.actions { width: 200px; text-align: right; }
+
+th.actions, td.actions { width: 220px; text-align: right; }
+
+td.owner {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  color: #cdd5e6;
+  opacity: 0.9;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .badge {
   display: inline-flex;
@@ -105,8 +160,14 @@ th.actions, td.actions { width: 200px; text-align: right; }
   font-size: 12px;
   border: 1px solid rgba(255,255,255,0.14);
 }
+
 .badge.ok { background: rgba(41, 204, 106, 0.12); }
 .badge.no { background: rgba(255, 86, 86, 0.12); }
+
+.badge.role {
+  background: rgba(120, 160, 255, 0.10);
+  border-color: rgba(120, 160, 255, 0.35);
+}
 
 .smallBtn {
   padding: 8px 10px;
@@ -117,7 +178,9 @@ th.actions, td.actions { width: 200px; text-align: right; }
   cursor: pointer;
   margin-left: 8px;
 }
+
 .smallBtn.danger { border-color: rgba(255, 86, 86, 0.45); }
+
 .smallBtn:hover { filter: brightness(1.08); }
 
 .modal {
@@ -128,6 +191,7 @@ th.actions, td.actions { width: 200px; text-align: right; }
   place-items: center;
   padding: 18px;
 }
+
 .modal.hidden { display: none; }
 
 .modalCard {
@@ -138,12 +202,14 @@ th.actions, td.actions { width: 200px; text-align: right; }
   border-radius: 16px;
   padding: 14px;
 }
+
 .modalHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
 }
+
 .iconBtn {
   background: transparent;
   border: 1px solid rgba(255,255,255,0.18);
@@ -151,4 +217,15 @@ th.actions, td.actions { width: 200px; text-align: right; }
   color: #e9ecf1;
   cursor: pointer;
   padding: 6px 10px;
+}
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  h1 { font-size: 26px; }
+  table { min-width: 760px; }
+}
+
+@media (max-width: 520px) {
+  .grid { grid-template-columns: 1fr; }
+  .container { padding: 16px; }
 }
